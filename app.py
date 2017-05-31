@@ -10,7 +10,7 @@ from urllib.error import HTTPError
 
 import json
 import os
-
+import requests
 from flask import Flask
 from flask import request
 from flask import make_response
@@ -36,27 +36,48 @@ def webhook():
 
 
 def processRequest(req):
-    if req.get("result").get("action") != "yahooWeatherForecast":
+    if req.get("result").get("action") != "get_passage":
         return {}
-    baseurl = "https://query.yahooapis.com/v1/public/yql?"
-    yql_query = makeYqlQuery(req)
-    if yql_query is None:
-        return {}
-    yql_url = baseurl + urlencode({'q': yql_query}) + "&format=json"
-    result = urlopen(yql_url).read()
-    data = json.loads(result)
-    res = makeWebhookResult(data)
-    return res
+
+    baseurl = "https://bibles.org/v2/passages.js?q[]="
+    query = makeQuery(req)
+    # if yql_query is None:
+    #     return {}
+    url = baseurl + urlencode({'q': query})
+    # result = urlopen(yql_url).read()
+    # data = json.loads(result)
+    # res = makeWebhookResult(data)
+    # return res
+
+    return {
+        "speech": baseurl + query,
+        "displayText": "The passage you searched was: " + baseurl + query,
+        # "data": data,
+        # "contextOut": [],
+        "source": "apiai-devotion-webhook"
+    }
 
 
-def makeYqlQuery(req):
+def makeQuery(req):
     result = req.get("result")
     parameters = result.get("parameters")
-    city = parameters.get("geo-city")
-    if city is None:
+    book = parameters.get("Book")
+    if book is None:
         return None
 
-    return "select * from weather.forecast where woeid in (select woeid from geo.places(1) where text='" + city + "')"
+    chapter = parameters.get("Chapter")
+    if chapter is None:
+        return None
+
+    start_verse = parameters.get("StartVerse")
+    if start_verse is None:
+        start_verse = "1"
+    
+    end_verse = parameters.get("EndVerse")
+    if end_verse is None:
+        end_verse = "-ff"
+
+    return book + "+" + chapter + ":" + start_verse + end_verse + "&version=eng-GNTD"
 
 
 def makeWebhookResult(data):
